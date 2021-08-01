@@ -12,8 +12,13 @@ DEFAULT_BAVAIL = {"BCH": 8, "FAC": 8, "HSE": 8, "SHP": 8, "HWY": 8}
 DEFAULT_GAME_STATE = {
     "turn": 1,
     "bavail": DEFAULT_BAVAIL.copy(),
-    "data": DEFAULT_GRID[:]
+    "data": DEFAULT_GRID[:],
+    "x_lower": DEFAULT_X_LOWER,
+    "x_upper": DEFAULT_X_UPPER,
+    "y_lower": DEFAULT_Y_LOWER,
+    "y_upper": DEFAULT_Y_UPPER
 }
+DEFAULT_FMT_FRONT_SPACING = 3
 
 
 #     ___
@@ -24,15 +29,17 @@ DEFAULT_GAME_STATE = {
 #   |_|  |_|_|_| \__)
 
 def fmt_row(idx, row):
-    return "  +" + "-----+" * len(row) + "\n{} |".format(idx) + "|".join(
+    return " " * DEFAULT_FMT_FRONT_SPACING + "+" + "-----+" * len(row) + "\n{:>2s} |".format(str(idx)) + "|".join(
         "{:^5s}".format(str(v) if v is not None else "") for v in row) + "|"
 
 
 def fmt_grid(grid=None):
     if grid is None:
         grid = DEFAULT_GRID
-    return "   " + " ".join("{:^5s}".format(chr(v + 65)) for v in range(len(grid[0]))) + "\n" + "\n".join(
-        fmt_row(idx + 1, r) for idx, r in enumerate(grid)) + "\n  +" + "-----+" * len(grid[0])
+    return " " * (DEFAULT_FMT_FRONT_SPACING + 1) + " ".join(
+        "{:^5s}".format(chr(v + 65)) for v in range(len(grid[0]))) + "\n" + "\n".join(
+        fmt_row(idx + 1, r) for idx, r in
+        enumerate(grid)) + "\n" + " " * DEFAULT_FMT_FRONT_SPACING + "+" + "-----+" * len(grid[0])
 
 
 def fmt_bavail(bavail):
@@ -97,11 +104,11 @@ def system_exit():
 # |  __/ \___/|_|_| |_| \__|___/
 # |_|
 
-def points_bch(grid=None):
-    if grid is None:
-        grid = DEFAULT_GRID
+def points_bch(state=None):
+    if state is None:
+        state = DEFAULT_GAME_STATE
     p = []
-    for row in grid:
+    for row in state["data"]:
         if "BCH" not in row:
             continue
         for idx, col in enumerate(row):
@@ -114,11 +121,11 @@ def points_bch(grid=None):
     return p
 
 
-def points_fac(grid=None):
-    if grid is None:
-        grid = DEFAULT_GRID
+def points_fac(state=None):
+    if state is None:
+        state = DEFAULT_GAME_STATE
     fac_c = 0
-    for row in grid:
+    for row in state["data"]:
         for col in row:
             if col == "FAC":
                 fac_c += 1
@@ -130,15 +137,15 @@ def points_fac(grid=None):
     return p
 
 
-def points_hse(grid=None):
-    if grid is None:
-        grid = DEFAULT_GRID
+def points_hse(state=None):
+    if state is None:
+        state = DEFAULT_GAME_STATE
     p = []
-    for y, row in enumerate(grid):
+    for y, row in enumerate(state["data"]):
         for x, col in enumerate(row):
             if not col == "HSE":
                 continue
-            adj = game_adj(x + DEFAULT_X_LOWER, y + DEFAULT_Y_LOWER, grid)
+            adj = game_adj(x + DEFAULT_X_LOWER, y + DEFAULT_Y_LOWER, state["data"])
             if "FAC" in adj:
                 p.append(1)
                 continue
@@ -148,26 +155,26 @@ def points_hse(grid=None):
     return p
 
 
-def points_shp(grid=None):
-    if grid is None:
-        grid = DEFAULT_GRID
+def points_shp(state=None):
+    if state is None:
+        state = DEFAULT_GAME_STATE
     p = []
-    for y, row in enumerate(grid):
+    for y, row in enumerate(state["data"]):
         for x, col in enumerate(row):
             if not col == "SHP":
                 continue
-            adj = game_adj(x + DEFAULT_X_LOWER, y + DEFAULT_Y_LOWER, grid)
+            adj = game_adj(x + DEFAULT_X_LOWER, y + DEFAULT_Y_LOWER, state)
             unique_c = len(list(set(adj)))
             if unique_c > 0:
                 p.append(unique_c)
     return p
 
 
-def points_hwy(grid=None):
-    if grid is None:
-        grid = DEFAULT_GRID
+def points_hwy(state=None):
+    if state is None:
+        state = DEFAULT_GAME_STATE
     p = []
-    for row in enumerate(grid):
+    for row in enumerate(state["data"]):
         temp_p = row.count("HWY")
         if not temp_p == 0:
             p.append(temp_p)
@@ -181,26 +188,31 @@ def points_hwy(grid=None):
 # (_____|
 
 
-def game_adj(x, y, grid=None):
-    if grid is None:
-        grid = DEFAULT_GRID
+def game_adj(x, y, state=None):
+    if state is None:
+        state = DEFAULT_GAME_STATE
+
+    grid = state["data"]
+    x_lower = state["x_lower"]
+    y_lower = state["y_lower"]
+    y_upper = state["y_upper"]
 
     adj = []
-    top = y - DEFAULT_Y_LOWER - 1 if y - DEFAULT_Y_LOWER - 1 >= 0 else False
-    if top is not False and grid[top][x - DEFAULT_X_LOWER] is not None:
-        adj.append(grid[top][x - DEFAULT_X_LOWER])
+    top = y - y_lower - 1 if y - y_lower - 1 >= 0 else False
+    if top is not False and grid[top][x - x_lower] is not None:
+        adj.append(grid[top][x - x_lower])
 
-    bottom = y - DEFAULT_Y_LOWER + 1 if y - DEFAULT_Y_LOWER + 1 < DEFAULT_Y_UPPER else False
-    if bottom is not False and grid[bottom][x - DEFAULT_X_LOWER] is not None:
-        adj.append(grid[bottom][x - DEFAULT_X_LOWER])
+    bottom = y - y_lower + 1 if y - y_lower + 1 < y_upper else False
+    if bottom is not False and grid[bottom][x - x_lower] is not None:
+        adj.append(grid[bottom][x - x_lower])
 
-    left = x - DEFAULT_X_LOWER - 1 if x - DEFAULT_X_LOWER - 1 >= 0 else False
-    if left is not False and grid[y - DEFAULT_Y_LOWER][left] is not None:
-        adj.append(grid[y - DEFAULT_Y_LOWER][left])
+    left = x - x_lower - 1 if x - x_lower - 1 >= 0 else False
+    if left is not False and grid[y - y_lower][left] is not None:
+        adj.append(grid[y - y_lower][left])
 
-    right = x - DEFAULT_X_LOWER + 1 if x - DEFAULT_X_LOWER + 1 <= DEFAULT_X_UPPER - DEFAULT_X_LOWER else False
-    if right is not False and grid[y - DEFAULT_Y_LOWER][right] is not None:
-        adj.append(grid[y - DEFAULT_Y_LOWER][right])
+    right = x - x_lower + 1 if x - x_lower + 1 <= y_upper - x_lower else False
+    if right is not False and grid[y - y_lower][right] is not None:
+        adj.append(grid[y - y_lower][right])
 
     return adj
 
@@ -225,6 +237,8 @@ def game_build(x, y, building, skip_validation=False, state=None):
 def game_turn(points, state=None):
     if state is None:
         state = DEFAULT_GAME_STATE
+    if state["turn"] == len(state["data"]) * len(state["data"][0]) + 1:
+        return True
     print("Turn {}".format(state["turn"]))
     print(fmt_grid(state["data"]))
     rs = game_get_buildings()
@@ -256,8 +270,6 @@ def game_turn(points, state=None):
         else:
             state["turn"] += 1
             state["bavail"][rs[choice - 1]] -= 1
-            if state["turn"] == len(DEFAULT_GRID) * len(DEFAULT_GRID[0]) + 1:
-                return True
 
     elif choice == 3:
         print()
@@ -302,6 +314,42 @@ def main():
         system_exit()
     elif choice == 1:
         state = DEFAULT_GAME_STATE.copy()
+        print("Choose city size:")
+        print("1. Default")
+        print("2. Custom")
+        print()
+        print("0. Exit")
+        while True:
+            choice = io_get("Your choice? ", 0, 2)
+            if choice is not False:
+                break
+            print("Oh no! that's an invalid choice, please choose again.")
+        if choice == 0:
+            system_exit()
+        elif choice == 2:
+            while True:
+                x = io_get("Enter number of columns: ", 1, 26)
+                if x is not False:
+                    break
+                print("Oh no! that's an invalid choice, please choose again.")
+
+            while True:
+                y = io_get("Enter number of rows: ", 1, 99)
+                if y is not False:
+                    break
+                print("Oh no! that's an invalid choice, please choose again.")
+
+            state["x_upper"] = DEFAULT_X_LOWER + x
+            state["y_upper"] = y
+
+            grid = []
+            for _ in range(y):
+                row = []
+                for _ in range(x):
+                    row.append(None)
+                grid.append(row)
+            state["data"] = grid
+
         points = {
             "BCH": points_bch,
             "FAC": points_fac,
@@ -314,13 +362,13 @@ def main():
             if done:
                 break
 
-        if state["turn"] == len(DEFAULT_GRID) * len(DEFAULT_GRID[0]) + 1:
+        if state["turn"] == len(state["data"]) * len(state["data"][0]) + 1:
             print("Final layout of Simp City:")
             print(fmt_grid(state["data"]))
             p = {}
             s = 0
             for k, v in points.items():
-                point = v(state["data"])
+                point = v(state)
                 p[k] = point
                 s += sum(point)
 

@@ -20,10 +20,10 @@ DEFAULT_STATE = {
     # Available buildings left
     "b_avail": {"BCH": 8, "FAC": 8, "HSE": 8, "SHP": 8, "HWY": 8},
     # Grid, uses None for default values
-    "grid": [["HWY", "HWY", "HWY", None],
+    "grid": [[None, None, None, None],
              [None, None, None, None],
              [None, None, None, None],
-             ["HWY", None, "HWY", "HWY"]],
+             [None, None, None, None]],
     # For storing buildings generated from turns
     "tmp_buildings": [None, None],
 }
@@ -330,7 +330,15 @@ def game_turn(points, state=None):
 
     print("Turn {}".format(state["turn"]))
 
-    print(fmt_grid(state))
+    grid = fmt_grid(state).splitlines()
+    bavail = fmt_bavail(state).splitlines()
+    length = max(len(grid), len(bavail))
+    combined = ""
+    for idx in range(length):
+        combined += "{}\t\t{}\n".format(grid[idx] if idx < len(grid) else " " * len(grid[0]),
+                                        bavail[idx] if idx < len(bavail) else "")
+    print(combined)
+
     if state["tmp_buildings"][0] is None:
         state["tmp_buildings"] = game_get_buildings(state)
 
@@ -391,6 +399,13 @@ def game_get_buildings(state=None):
     r1 = randchoice(list(state["b_avail"].keys()))
     r2 = randchoice(list(state["b_avail"].keys()))
     return [r1, r2]
+
+
+def game_gen_bavail(state=None):
+    if state is None:
+        state = DEFAULT_STATE
+    total = len(state["grid"]) * len(state["grid"][0])
+    return round(total / 2)
 
 
 #              _
@@ -465,48 +480,48 @@ def main():
             # Create copy of state
             state = DEFAULT_STATE.copy()
 
-            # print("Choose city size:")
-            # print("1. Default")
-            # print("2. Custom")
-            # print()
-            # print("0. Exit")
-            #
-            # while True:
-            #     choice = io_get_choice("Your choice? ", 0, 2)
-            #     if choice is not False:
-            #         break
-            #     print("Oh no! that's an invalid choice, please choose again.")
-            #
-            # # Exit
-            # if choice == 0:
-            #     system_exit()
-            #
-            # # Custom
-            # elif choice == 2:
-            #     while True:
-            #         x = io_get_choice("Enter number of columns: ", 1, 26)
-            #         if x is not False:
-            #             break
-            #         print("Oh no! that's an invalid choice, please choose again.")
-            #
-            #     while True:
-            #         y = io_get_choice("Enter number of rows: ", 1, 99)
-            #         if y is not False:
-            #             break
-            #         print("Oh no! that's an invalid choice, please choose again.")
-            #
-            #     # Set bounds for input validation
-            #     state["config"]["x_upper"] = state["config"]["x_lower"] + x - 1
-            #     state["config"]["y_upper"] = y
-            #
-            #     # Create grid
-            #     grid = []
-            #     for _ in range(y):
-            #         row = []
-            #         for _ in range(x):
-            #             row.append(None)
-            #         grid.append(row)
-            #     state["grid"] = grid
+            print("Choose city size:")
+            print("1. Default")
+            print("2. Custom")
+            print()
+            print("0. Exit")
+
+            while True:
+                choice = io_get_choice("Your choice? ", 0, 2)
+                if choice is not False:
+                    break
+                print("Oh no! that's an invalid choice, please choose again.")
+
+            # Exit
+            if choice == 0:
+                system_exit()
+
+            # Custom
+            elif choice == 2:
+                while True:
+                    x = io_get_choice("Enter number of columns: ", 1, 26)
+                    if x is not False:
+                        break
+                    print("Oh no! that's an invalid choice, please choose again.")
+
+                while True:
+                    y = io_get_choice("Enter number of rows: ", 1, 99)
+                    if y is not False:
+                        break
+                    print("Oh no! that's an invalid choice, please choose again.")
+
+                # Set bounds for input validation
+                state["config"]["x_upper"] = state["config"]["x_lower"] + x - 1
+                state["config"]["y_upper"] = y
+
+                # Create grid
+                grid = []
+                for _ in range(y):
+                    row = []
+                    for _ in range(x):
+                        row.append(None)
+                    grid.append(row)
+                state["grid"] = grid
 
         # Set point functions
         points = {
@@ -516,6 +531,10 @@ def main():
             "SHP": points_shp,
             "HWY": points_hwy,
         }
+
+        bavail = game_gen_bavail(state)
+        for key in state["b_avail"].keys():
+            state["b_avail"][key] = bavail
 
         while True:
             code = game_turn(points, state)

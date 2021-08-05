@@ -20,12 +20,12 @@ DEFAULT_STATE = {
     # Available buildings left
     "b_avail": {"BCH": 8, "FAC": 8, "HSE": 8, "SHP": 8, "HWY": 8},
     # Grid, uses None for default values
-    "grid": [[None, None, None, None],
+    "grid": [["HWY", "HWY", "HWY", None],
              [None, None, None, None],
              [None, None, None, None],
-             [None, None, None, None]],
+             ["HWY", None, "HWY", "HWY"]],
     # For storing buildings generated from turns
-    "tmp_buildings": [None, None]
+    "tmp_buildings": [None, None],
 }
 
 
@@ -70,6 +70,17 @@ def fmt_points(points):
         "{}: {} = {}".format(k, " + ".join(str(i) for i in v), sum(v)) if sum(v) > 0 else
         "{}: 0".format(k) for k, v in
         points.items())
+
+
+def fmt_leaderboard(leaderboard=None):
+    if leaderboard is None:
+        leaderboard = []
+    return "--------- HIGH SCORES ---------\n" + \
+           "{:>3s} {:21s} {:>5s}\n{:>3s} {:21s} {:>5s}\n".format(
+               "Pos", "Player", "Score",
+               len("Pos") * "-", len("Player") * "-", len("Score") * "-") + "\n".join(
+        "{:>3s} {:21s} {:>5s}".format(str(idx + 1), kv["name"], str(kv["score"]))
+        for idx, kv in enumerate(leaderboard)) + "\n-------------------------------"
 
 
 #  _
@@ -123,6 +134,31 @@ def io_get_state():
     try:
         with open("data", "r") as i:
             return jsonload(i.read())
+    except:
+        return False
+
+
+def io_put_leaderboard(state=None, leaderboard=None):
+    if leaderboard is None:
+        leaderboard = []
+    if state is None:
+        state = DEFAULT_STATE
+    try:
+        with open("leaderboard", "r") as i:
+            file = jsonload(i.read())
+    except:
+        file = {}
+    with open("leaderboard", "w") as o:
+        file["{},{}".format(len(state['grid']), len(state['grid'][0]))] = leaderboard
+        o.write(jsondump(file, sort_keys=True, indent=4))
+
+
+def io_get_leaderboard(state=None):
+    if state is None:
+        state = DEFAULT_STATE
+    try:
+        with open("leaderboard", "r") as i:
+            return jsonload(i.read())["{},{}".format(len(state['grid']), len(state['grid'][0]))]
     except:
         return False
 
@@ -217,10 +253,16 @@ def points_hwy(state=None):
     if state is None:
         state = DEFAULT_STATE
     p = []
-    for row in enumerate(state["grid"]):
-        temp_p = row.count("HWY")
-        if not temp_p == 0:
-            p.append(temp_p)
+    for y, row in enumerate(state["grid"]):
+        count = 1
+        for x, col in enumerate(row):
+            if not col == "HWY":
+                continue
+            if x + 1 < len(row) and row[x + 1] == "HWY":
+                count += 1
+            else:
+                p += [count for _ in range(count)]
+                count = 1
     return p
 
 
@@ -285,10 +327,13 @@ def game_turn(points, state=None):
         state = DEFAULT_STATE
     if state["turn"] == len(state["grid"]) * len(state["grid"][0]) + 1:
         return 1
+
     print("Turn {}".format(state["turn"]))
+
     print(fmt_grid(state))
     if state["tmp_buildings"][0] is None:
-        state["tmp_buildings"] = game_get_buildings()
+        state["tmp_buildings"] = game_get_buildings(state)
+
     print("1. Build a {}".format(state["tmp_buildings"][0]))
     print("2. Build a {}".format(state["tmp_buildings"][1]))
     print("3. See remaining buildings")
@@ -296,6 +341,7 @@ def game_turn(points, state=None):
     print()
     print("5. Save game")
     print("0. Exit to main menu")
+
     while True:
         choice = io_get_choice("Your choice? ", 0, 5)
         if choice is not False:
@@ -361,11 +407,12 @@ def main():
     while True:
         print("1. Start new game")
         print("2. Load saved game")
+        print("3. Show high scores")
         print()
         print("0. Exit")
 
         while True:
-            choice = io_get_choice("Your choice? ", 0, 2)
+            choice = io_get_choice("Your choice? ", 0, 3)
             if choice is not False:
                 break
             print("Oh no! That's an invalid choice, please choose again.")
@@ -374,57 +421,92 @@ def main():
         if choice == 0:
             system_exit()
 
+        # Load saved game
         if choice == 2:
             state = io_get_state()
             # If load failed
             if not state:
                 state = DEFAULT_STATE.copy()
+
+        # Show high scores
+        elif choice == 3:
+            state = DEFAULT_STATE.copy()
+            print("Which city size's scoreboard do you want to see?")
+            while True:
+                x = io_get_choice("Enter number of columns: ", 1, 26)
+                if x is not False:
+                    break
+                print("Oh no! that's an invalid choice, please choose again.")
+
+            while True:
+                y = io_get_choice("Enter number of rows: ", 1, 99)
+                if y is not False:
+                    break
+                print("Oh no! that's an invalid choice, please choose again.")
+
+            # Create grid
+            grid = []
+            for _ in range(y):
+                row = []
+                for _ in range(x):
+                    row.append(None)
+                grid.append(row)
+            state["grid"] = grid
+
+            leaderboard = io_get_leaderboard(state)
+            if not leaderboard:
+                io_put_leaderboard(state, [])
+                leaderboard = io_get_leaderboard(state)
+            print(fmt_leaderboard(leaderboard))
+
+            continue
+
         else:
             # Create copy of state
             state = DEFAULT_STATE.copy()
 
-            print("Choose city size:")
-            print("1. Default")
-            print("2. Custom")
-            print()
-            print("0. Exit")
-
-            while True:
-                choice = io_get_choice("Your choice? ", 0, 2)
-                if choice is not False:
-                    break
-                print("Oh no! that's an invalid choice, please choose again.")
-
-            # Exit
-            if choice == 0:
-                system_exit()
-
-            # Custom
-            elif choice == 2:
-                while True:
-                    x = io_get_choice("Enter number of columns: ", 1, 26)
-                    if x is not False:
-                        break
-                    print("Oh no! that's an invalid choice, please choose again.")
-
-                while True:
-                    y = io_get_choice("Enter number of rows: ", 1, 99)
-                    if y is not False:
-                        break
-                    print("Oh no! that's an invalid choice, please choose again.")
-
-                # Set bounds for input validation
-                state["config"]["x_upper"] = state["config"]["x_lower"] + x - 1
-                state["config"]["y_upper"] = y
-
-                # Create grid
-                grid = []
-                for _ in range(y):
-                    row = []
-                    for _ in range(x):
-                        row.append(None)
-                    grid.append(row)
-                state["grid"] = grid
+            # print("Choose city size:")
+            # print("1. Default")
+            # print("2. Custom")
+            # print()
+            # print("0. Exit")
+            #
+            # while True:
+            #     choice = io_get_choice("Your choice? ", 0, 2)
+            #     if choice is not False:
+            #         break
+            #     print("Oh no! that's an invalid choice, please choose again.")
+            #
+            # # Exit
+            # if choice == 0:
+            #     system_exit()
+            #
+            # # Custom
+            # elif choice == 2:
+            #     while True:
+            #         x = io_get_choice("Enter number of columns: ", 1, 26)
+            #         if x is not False:
+            #             break
+            #         print("Oh no! that's an invalid choice, please choose again.")
+            #
+            #     while True:
+            #         y = io_get_choice("Enter number of rows: ", 1, 99)
+            #         if y is not False:
+            #             break
+            #         print("Oh no! that's an invalid choice, please choose again.")
+            #
+            #     # Set bounds for input validation
+            #     state["config"]["x_upper"] = state["config"]["x_lower"] + x - 1
+            #     state["config"]["y_upper"] = y
+            #
+            #     # Create grid
+            #     grid = []
+            #     for _ in range(y):
+            #         row = []
+            #         for _ in range(x):
+            #             row.append(None)
+            #         grid.append(row)
+            #     state["grid"] = grid
 
         # Set point functions
         points = {
@@ -456,6 +538,38 @@ def main():
 
             print(fmt_points(p))
             print("Total score: {}".format(s))
+
+            # Get leaderboard
+            leaderboard = io_get_leaderboard(state)
+            if not leaderboard:
+                leaderboard = []
+
+            # Sort leaderboard by descending order
+            leaderboard.sort(key=lambda i: i.get("score"), reverse=True)
+            pos = -1
+            for idx, item in enumerate(leaderboard):  # Check if there are smaller values in the list
+                if item["score"] >= s:
+                    continue
+                pos = idx
+                break
+            # If the length of the leaderboard is less than 10 and the score is lower than all scores, the position
+            # is the last
+            if len(leaderboard) < 10 and pos == -1:
+                pos = len(leaderboard)
+
+            if not pos == -1:
+                print("Congratulations! You made the high score board at position {}!".format(pos + 1))
+                while True:
+                    name = input("Please enter your name (max 20 chars): ")
+                    if len(name) <= 20:
+                        break
+                leaderboard.insert(pos, {"name": name, "score": s})
+                # Remove scores > 10
+                while len(leaderboard) > 10:
+                    leaderboard.pop()
+
+                print(fmt_leaderboard(leaderboard))
+                io_put_leaderboard(state, leaderboard)
 
             system_exit()
 

@@ -253,7 +253,7 @@ def game_turn(points, state=None):
         choice = io_get("Your choice? ", 0, 5)
         if choice is not False:
             break
-        print("Oh no! that's an invalid choice, please choose again.")
+        print("Oh no! That's an invalid choice, please choose again.")
     if choice == 0:
         return True
     elif choice == 1 or choice == 2:
@@ -323,7 +323,7 @@ def main():
             choice = io_get("Your choice? ", 0, 2)
             if choice is not False:
                 break
-            print("Oh no! that's an invalid choice, please choose again.")
+            print("Oh no! That's an invalid choice, please choose again.")
         if choice == 0:
             system_exit()
         elif choice == 2:
@@ -331,13 +331,13 @@ def main():
                 x = io_get("Enter number of columns: ", 1, 26)
                 if x is not False:
                     break
-                print("Oh no! that's an invalid choice, please choose again.")
+                print("Oh no! That's an invalid choice, please choose again.")
 
             while True:
                 y = io_get("Enter number of rows: ", 1, 99)
                 if y is not False:
                     break
-                print("Oh no! that's an invalid choice, please choose again.")
+                print("Oh no! That's an invalid choice, please choose again.")
 
             state["x_upper"] = DEFAULT_X_LOWER + x
             state["y_upper"] = y
